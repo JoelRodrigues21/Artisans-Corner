@@ -1,14 +1,11 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import API from "../services/api";
 
 function BuyerDashboard() {
   const navigate = useNavigate();
 
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("user"))
-  );
-
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem("user")));
   const [activeSection, setActiveSection] = useState("profile");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showAddressForm, setShowAddressForm] = useState(false);
@@ -68,10 +65,12 @@ function BuyerDashboard() {
 
       saveUser(res.data);
       setIsEditingProfile(false);
-
       showToast("Profile updated successfully");
     } catch (error) {
-      showToast(error.response?.data?.message || "Profile update failed", "error");
+      showToast(
+        error.response?.data?.message || "Profile update failed",
+        "error"
+      );
     }
   };
 
@@ -138,9 +137,6 @@ function BuyerDashboard() {
 
   return (
     <div className="classic-buyer-page">
-      <button onClick={logout} className="buyer-top-logout-btn">
-  Logout
-</button>
       {toast && (
         <div
           className={
@@ -194,10 +190,6 @@ function BuyerDashboard() {
             <Link to="/orders" className="classic-orders-link">
               MY ORDERS
             </Link>
-
-            <button onClick={logout} className="classic-logout-btn">
-              Logout
-            </button>
           </div>
         </aside>
 
@@ -210,7 +202,13 @@ function BuyerDashboard() {
                   <h1>Personal Information</h1>
                 </div>
 
-                <span>Artisan’s Corner Member</span>
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="buyer-heading-logout-btn"
+                >
+                  Logout
+                </button>
               </div>
 
               <div className="classic-profile-grid">
@@ -317,10 +315,8 @@ function BuyerDashboard() {
                       <div className="classic-detail-box full">
                         <span>Address</span>
                         <h3>
-                          {defaultAddress.addressLine},{" "}
-                          {defaultAddress.city},{" "}
-                          {defaultAddress.state} -{" "}
-                          {defaultAddress.pincode}
+                          {defaultAddress.addressLine}, {defaultAddress.city},{" "}
+                          {defaultAddress.state} - {defaultAddress.pincode}
                         </h3>
                       </div>
                     </div>
@@ -371,7 +367,7 @@ function BuyerDashboard() {
                         className="address-modal-close"
                         onClick={() => setShowAddressForm(false)}
                       >
-                        ×
+                        X
                       </button>
                     </div>
 
@@ -493,8 +489,8 @@ function BuyerDashboard() {
                       <p>{address.phone}</p>
 
                       <p>
-                        {address.addressLine}, {address.city},{" "}
-                        {address.state} - {address.pincode}
+                        {address.addressLine}, {address.city}, {address.state} -{" "}
+                        {address.pincode}
                       </p>
 
                       <div className="classic-address-actions">
@@ -612,8 +608,7 @@ function BuyerDashboard() {
           }
 
           .classic-menu-item,
-          .classic-orders-link,
-          .classic-logout-btn {
+          .classic-orders-link {
             width: 100%;
             padding: 19px 24px;
             background: transparent;
@@ -641,12 +636,6 @@ function BuyerDashboard() {
 
           .classic-orders-link {
             display: block;
-          }
-
-          .classic-logout-btn {
-            margin-top: auto;
-            color: #b71c1c;
-            border-top: 1px solid #ead7bd;
           }
 
           .classic-main-card {
@@ -683,13 +672,21 @@ function BuyerDashboard() {
             font-family: Georgia, serif;
           }
 
-          .classic-page-heading span {
+          .buyer-heading-logout-btn {
             background: #3e2723;
             color: #fff8ef;
-            padding: 10px 18px;
+            padding: 13px 26px;
             border-radius: 30px;
-            font-weight: 800;
+            font-weight: 900;
+            border: none;
+            cursor: pointer;
+            font-family: Georgia, serif;
             white-space: nowrap;
+          }
+
+          .buyer-heading-logout-btn:hover {
+            background: #5c371d;
+            transform: translateY(-2px);
           }
 
           .classic-profile-grid {
@@ -755,6 +752,7 @@ function BuyerDashboard() {
             font-size: clamp(19px, 1.25vw, 27px);
             font-family: Georgia, serif;
             line-height: 1.45;
+            word-break: break-word;
           }
 
           .classic-primary-btn,
@@ -957,7 +955,7 @@ function BuyerDashboard() {
             background: #3e2723;
             color: #fff8ef;
             border: 1px solid #c8a77a;
-            font-size: 30px;
+            font-size: 20px;
             line-height: 1;
             cursor: pointer;
           }
@@ -1111,6 +1109,10 @@ function BuyerDashboard() {
             .classic-page-heading {
               flex-direction: column;
               align-items: flex-start;
+            }
+
+            .buyer-heading-logout-btn {
+              width: 100%;
             }
 
             .classic-user-card {
