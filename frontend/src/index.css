@@ -1210,3 +1210,65 @@ button {
     margin-bottom: 14px !important;
   }
 }
+/* Buyer Dashboard Hero Logout */
+
+.buyer-hero {
+  background: rgba(255, 250, 242, 0.97) !important;
+  border: 1px solid #c8a77a !important;
+  border-radius: 24px !important;
+  padding: clamp(24px, 3vw, 46px) !important;
+  margin-bottom: 24px !important;
+  box-shadow: 0 8px 22px rgba(62, 39, 35, 0.14) !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 22px !important;
+  flex-wrap: wrap !important;
+}
+
+.buyer-hero p {
+  margin: 0 0 8px !important;
+  color: #7a5c44 !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+}
+
+.buyer-hero h1 {
+  margin: 0 !important;
+  color: #3e2723 !important;
+  font-family: Georgia, serif !important;
+  font-size: clamp(42px, 4vw, 72px) !important;
+}
+
+.buyer-hero span {
+  display: block !important;
+  margin-top: 10px !important;
+  color: #5d4037 !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+
+.buyer-hero-logout-btn {
+  background: linear-gradient(135deg, #8b1e1e, #5c0f0f) !important;
+  color: #fff8ef !important;
+  border: 1px solid #d7b98a !important;
+  border-radius: 40px !important;
+  padding: 14px 30px !important;
+  font-weight: 900 !important;
+  cursor: pointer !important;
+  font-family: Georgia, serif !important;
+  font-size: 16px !important;
+  box-shadow: 0 6px 16px rgba(92, 15, 15, 0.28) !important;
+}
+
+.buyer-hero-logout-btn:hover {
+  background: linear-gradient(135deg, #a32626, #6e1414) !important;
+  transform: translateY(-2px) !important;
+}
+
+@media (max-width: 600px) {
+  .buyer-hero-logout-btn {
+    width: 100% !important;
+  }
+}
