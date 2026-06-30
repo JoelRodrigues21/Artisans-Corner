@@ -1,167 +1,260 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { HiShoppingCart, HiUserCircle, HiHeart } from "react-icons/hi2";
 
 function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const user = JSON.parse(localStorage.getItem("user"));
-  const [searchText, setSearchText] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    setSearchText(params.get("search") || "");
-  }, [location.search]);
+  let user = null;
 
-  const getProfilePath = () => {
-    if (!user) return "/login";
-    if (user.role === "buyer") return "/buyer";
-    if (user.role === "vendor") return "/vendor";
-    if (user.role === "admin") return "/admin";
-    return "/login";
-  };
+  try {
+    const savedUser = localStorage.getItem("user");
+    user = savedUser ? JSON.parse(savedUser) : null;
+  } catch (error) {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    user = null;
+  }
 
-  const searchProducts = (e) => {
+  const isHomePage = location.pathname === "/";
+
+  const handleSearch = (e) => {
     e.preventDefault();
 
-    const cleanSearch = searchText.trim();
+    const keyword = searchTerm.trim();
 
-    if (cleanSearch === "") {
-      navigate("/");
-    } else {
-      navigate(`/?search=${encodeURIComponent(cleanSearch)}`);
-    }
+    if (!keyword) return;
+
+    navigate(`/?search=${encodeURIComponent(keyword)}`);
   };
 
-  const navItemStyle = {
-    color: "white",
-    textDecoration: "none",
-    fontWeight: "700",
-    fontSize: "15px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "3px",
-    minWidth: "70px",
+  const goToProfile = () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    if (user.role === "vendor") {
+      navigate("/vendor");
+      return;
+    }
+
+    if (user.role === "admin") {
+      navigate("/admin");
+      return;
+    }
+
+    navigate("/buyer");
   };
 
   return (
-    <nav
-      style={{
-        background: "#3e2723",
-        color: "white",
-        padding: "22px 40px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        position: "sticky",
-        top: 0,
-        zIndex: 999,
-        minHeight: "92px",
-        boxSizing: "border-box",
-      }}
-    >
-      <Link
-        to="/"
-        style={{
-          color: "white",
-          textDecoration: "none",
-        }}
-      >
-        <h1
-          style={{
-            margin: 0,
-            fontFamily: "Georgia, serif",
-            fontSize: "clamp(32px, 2.4vw, 48px)",
-            fontWeight: "800",
-            letterSpacing: "0.5px",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Artisan's Corner
-        </h1>
-      </Link>
-
-      <form
-        onSubmit={searchProducts}
-        style={{
-          position: "absolute",
-          left: "50%",
-          transform: "translateX(-50%)",
-          width: "min(560px, 34vw)",
-          height: "46px",
-          display: "flex",
-          alignItems: "center",
-          backgroundColor: "#fff8ef",
-          border: "2px solid #c8a77a",
-          borderRadius: "40px",
-          overflow: "hidden",
-          boxShadow: "0 3px 10px rgba(0,0,0,0.22)",
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Search handmade treasures..."
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          style={{
-            flex: 1,
-            border: "none",
-            outline: "none",
-            padding: "12px 20px",
-            fontSize: "16px",
-            fontFamily: "Georgia, serif",
-            backgroundColor: "transparent",
-            color: "#3e2723",
-            width: "100%",
-          }}
-        />
-
-        <button
-          type="submit"
-          style={{
-            backgroundColor: "#7a4f2a",
-            color: "white",
-            border: "none",
-            padding: "13px 22px",
-            cursor: "pointer",
-            fontWeight: "800",
-            fontSize: "15px",
-            height: "100%",
-            borderRadius: 0,
-          }}
-        >
-          Search
-        </button>
-      </form>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "28px",
-        }}
-      >
-        {user?.role === "buyer" && (
-          <>
-            <Link to="/wishlist" style={navItemStyle}>
-              <HiHeart size={31} />
-              <span>Wishlist</span>
-            </Link>
-
-            <Link to="/cart" style={navItemStyle}>
-              <HiShoppingCart size={31} />
-              <span>Cart</span>
-            </Link>
-          </>
-        )}
-
-        <Link to={getProfilePath()} style={navItemStyle}>
-          <HiUserCircle size={33} />
-          <span>Profile</span>
+    <nav className="center-classic-navbar">
+      <div className="center-navbar-left">
+        <Link to="/" className="center-classic-logo">
+          Artisan&apos;s Corner
         </Link>
       </div>
+
+      <div className="center-navbar-middle">
+        {isHomePage && (
+          <form onSubmit={handleSearch} className="center-classic-search">
+            <input
+              type="text"
+              placeholder="Search handmade treasures..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+
+            <button type="submit">Search</button>
+          </form>
+        )}
+      </div>
+
+      <div className="center-navbar-right">
+        {user ? (
+          <button
+            type="button"
+            className="center-profile-icon"
+            onClick={goToProfile}
+            title="Profile"
+          >
+            👤
+          </button>
+        ) : (
+          <Link to="/login" className="center-login-link">
+            Login
+          </Link>
+        )}
+      </div>
+
+      <style>
+        {`
+          .center-classic-navbar {
+            width: 100%;
+            min-height: 76px;
+            background: #3e2723;
+            border-bottom: 2px solid #c8a77a;
+            padding: 14px 34px;
+            display: grid;
+            grid-template-columns: 1fr minmax(280px, 560px) 1fr;
+            align-items: center;
+            gap: 22px;
+            box-sizing: border-box;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+            box-shadow: 0 4px 14px rgba(62, 39, 35, 0.22);
+          }
+
+          .center-navbar-left {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+          }
+
+          .center-navbar-middle {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+          }
+
+          .center-navbar-right {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+          }
+
+          .center-classic-logo {
+            color: #fff8ef;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 31px;
+            font-weight: 900;
+            text-decoration: none;
+            white-space: nowrap;
+            letter-spacing: 0.3px;
+          }
+
+          .center-classic-logo:hover {
+            color: #ead7bd;
+          }
+
+          .center-classic-search {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+
+          .center-classic-search input {
+            flex: 1;
+            height: 42px;
+            border-radius: 24px;
+            border: 1px solid #c8a77a;
+            background: #fff8ef;
+            color: #3e2723;
+            padding: 0 16px;
+            font-size: 14px;
+            font-weight: 700;
+            outline: none;
+          }
+
+          .center-classic-search input::placeholder {
+            color: #7a5c44;
+          }
+
+          .center-classic-search button {
+            height: 42px;
+            border-radius: 24px;
+            border: 1px solid #c8a77a;
+            background: #7a4f2a;
+            color: #fff8ef;
+            padding: 0 20px;
+            font-weight: 900;
+            cursor: pointer;
+            font-family: Georgia, "Times New Roman", serif;
+          }
+
+          .center-classic-search button:hover {
+            background: #5c371d;
+          }
+
+          .center-login-link {
+            background: transparent;
+            color: #fff8ef;
+            border: 1px solid #c8a77a;
+            text-decoration: none;
+            padding: 9px 18px;
+            border-radius: 24px;
+            font-family: Georgia, "Times New Roman", serif;
+            font-weight: 900;
+            white-space: nowrap;
+          }
+
+          .center-login-link:hover {
+            background: #fff8ef;
+            color: #3e2723;
+          }
+
+          .center-profile-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: 1px solid #c8a77a;
+            background: #fff8ef;
+            color: #3e2723;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+          }
+
+          .center-profile-icon:hover {
+            background: #ead7bd;
+          }
+
+          @media (max-width: 900px) {
+            .center-classic-navbar {
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              padding: 14px 16px;
+              gap: 13px;
+            }
+
+            .center-navbar-left,
+            .center-navbar-middle,
+            .center-navbar-right {
+              width: 100%;
+              justify-content: center;
+            }
+
+            .center-classic-logo {
+              font-size: 30px;
+              text-align: center;
+            }
+
+            .center-classic-search {
+              max-width: 560px;
+            }
+          }
+
+          @media (max-width: 480px) {
+            .center-classic-search {
+              flex-direction: column;
+            }
+
+            .center-classic-search input,
+            .center-classic-search button {
+              width: 100%;
+            }
+          }
+        `}
+      </style>
     </nav>
   );
 }

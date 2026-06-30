@@ -4,10 +4,16 @@ import API from "../services/api";
 
 function Orders() {
   const navigate = useNavigate();
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
+
+  const canSeeEarnings = user?.role === "vendor" || user?.role === "admin";
+  const canUpdateStatus = user?.role === "vendor" || user?.role === "admin";
+
+  const statusOptions = ["Processing", "Shipped", "Delivered", "Cancelled"];
 
   useEffect(() => {
     fetchOrders();
@@ -28,15 +34,36 @@ function Orders() {
         );
       }
 
-      allOrders.sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-      );
+      allOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
       setOrders(allOrders);
     } catch (error) {
       console.log(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      const res = await API.put(`/orders/${orderId}/status`, {
+        status: newStatus,
+      });
+
+      const updatedOrder = res.data?.order;
+
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order._id === orderId
+            ? updatedOrder || { ...order, status: newStatus }
+            : order
+        )
+      );
+
+      alert("Order status updated successfully");
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to update order status");
     }
   };
 
@@ -54,14 +81,63 @@ function Orders() {
     return item.product || item.productId || item;
   };
 
+  const getItemPrice = (item) => {
+    const product = getProduct(item);
+    return Number(item.price || product?.price || 0);
+  };
+
   const getOrderTotal = (order) => {
-    if (order.totalAmount) return order.totalAmount;
+    if (order.totalAmount) return Number(order.totalAmount);
 
     return order.products?.reduce((sum, item) => {
-      const product = getProduct(item);
-      const quantity = item.quantity || 1;
-      return sum + Number(product?.price || 0) * quantity;
+      const quantity = Number(item.quantity || 1);
+      return sum + getItemPrice(item) * quantity;
     }, 0);
+  };
+
+  const getPlatformFee = (order) => {
+    if (order.totalPlatformFee !== undefined) {
+      return Number(order.totalPlatformFee || 0);
+    }
+
+    return Math.round(getOrderTotal(order) * 0.05);
+  };
+
+  const getVendorPayout = (order) => {
+    if (order.totalVendorPayout !== undefined) {
+      return Number(order.totalVendorPayout || 0);
+    }
+
+    return getOrderTotal(order) - getPlatformFee(order);
+  };
+
+  const getPaymentStatusClass = (status) => {
+    if (status === "Paid") return "paid";
+    if (status === "Failed") return "failed";
+    return "pending";
+  };
+
+  const getProgressClass = (orderStatus, step) => {
+    const status = orderStatus || "Processing";
+
+    if (status === "Cancelled") return "";
+
+    const levels = {
+      Placed: 1,
+      Processing: 2,
+      Shipped: 3,
+      Delivered: 4,
+    };
+
+    return levels[status] >= levels[step] ? "active" : "";
+  };
+
+  const getPaymentMethodText = (paymentMethod) => {
+    if (paymentMethod === "Simulated Payment") {
+      return "Demo Payment (Test Mode)";
+    }
+
+    return paymentMethod || "Demo Payment (Test Mode)";
   };
 
   return (
@@ -71,10 +147,8 @@ function Orders() {
           <div>
             <p>Purchase History</p>
             <h1>My Orders</h1>
-            <span>Track your handmade product orders here.</span>
+            <span>Track your handmade product orders and payments here.</span>
           </div>
-
-          <button onClick={() => navigate("/")}>Continue Shopping</button>
         </div>
 
         {loading ? (
@@ -85,98 +159,237 @@ function Orders() {
           <div className="orders-empty-card">
             <h2>No orders yet.</h2>
             <p>Your placed orders will appear here.</p>
-            <button onClick={() => navigate("/")}>Start Shopping</button>
+
+            {user?.role === "buyer" && (
+              <button onClick={() => navigate("/")}>Start Shopping</button>
+            )}
           </div>
         ) : (
           <div className="orders-list">
-            {orders.map((order, index) => (
-              <div key={order._id} className="classic-order-card">
-                <div className="order-card-header">
-                  <div>
-                    <p>Order {index + 1}</p>
-                    <h2>Placed on {formatDate(order.createdAt)}</h2>
+            {orders.map((order, index) => {
+              const orderTotal = getOrderTotal(order);
+              const platformFee = getPlatformFee(order);
+              const vendorPayout = getVendorPayout(order);
+
+              return (
+                <div key={order._id} className="classic-order-card">
+                  <div className="order-card-header">
+                    <div>
+                      <p>Order {index + 1}</p>
+                      <h2>Placed on {formatDate(order.createdAt)}</h2>
+                    </div>
+
+                    <div className="order-header-right">
+                      <h2>₹{orderTotal}</h2>
+                      <span className={`status-pill ${order.status}`}>
+                        {order.status || "Processing"}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="order-header-right">
-                    <h2>₹{getOrderTotal(order)}</h2>
-                    <span>{order.status || "Processing"}</span>
-                  </div>
-                </div>
+                  <div className="order-payment-summary">
+                    <div className="payment-summary-box">
+                      <p>Payment Method</p>
+                      <h3>{getPaymentMethodText(order.paymentMethod)}</h3>
+                    </div>
 
-                <div className="order-progress-box">
-                  <div className="progress-step active">
-                    <span></span>
-                    <p>Placed</p>
-                  </div>
-
-                  <div className="progress-line active"></div>
-
-                  <div className="progress-step active">
-                    <span></span>
-                    <p>Processing</p>
-                  </div>
-
-                  <div className="progress-line"></div>
-
-                  <div className="progress-step">
-                    <span></span>
-                    <p>Delivered</p>
-                  </div>
-                </div>
-
-                <div className="order-products-list">
-                  {order.products?.map((item, productIndex) => {
-                    const product = getProduct(item);
-                    const quantity = item.quantity || 1;
-                    const price = Number(product?.price || 0);
-                    const itemTotal = price * quantity;
-
-                    return (
-                      <div
-                        key={product?._id || productIndex}
-                        className="order-product-row"
+                    <div className="payment-summary-box">
+                      <p>Payment Status</p>
+                      <h3
+                        className={`payment-status ${getPaymentStatusClass(
+                          order.paymentStatus
+                        )}`}
                       >
-                        <img
-                          src={product?.image}
-                          alt={product?.name}
-                          className="order-product-img"
-                        />
+                        {order.paymentStatus || "Paid"}
+                      </h3>
+                    </div>
 
-                        <div className="order-product-info">
-                          <Link to={`/product/${product?._id}`}>
-                            {product?.name}
-                          </Link>
+                    {canUpdateStatus && (
+                      <div className="payment-summary-box">
+                        <p>Update Order Status</p>
 
-                          <p>Quantity: {quantity}</p>
+                        <select
+                          value={order.status || "Processing"}
+                          onChange={(e) =>
+                            updateOrderStatus(order._id, e.target.value)
+                          }
+                          className="order-status-select"
+                        >
+                          {statusOptions.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
-                          <p className="order-address">
-                            Delivery Address: {order.shippingAddress}
-                          </p>
+                    {canSeeEarnings && (
+                      <>
+                        <div className="payment-summary-box">
+                          <p>Platform Commission 5%</p>
+                          <h3>₹{platformFee}</h3>
+                        </div>
 
-                          <div className="order-status-note">
-                            Your order is being processed
+                        <div className="payment-summary-box">
+                          <p>Vendor Earnings 95%</p>
+                          <h3>₹{vendorPayout}</h3>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {order.status === "Cancelled" ? (
+                    <div className="cancelled-order-box">
+                      This order has been cancelled.
+                    </div>
+                  ) : (
+                    <div className="order-progress-box">
+                      <div
+                        className={`progress-step ${getProgressClass(
+                          order.status,
+                          "Placed"
+                        )}`}
+                      >
+                        <span></span>
+                        <p>Placed</p>
+                      </div>
+
+                      <div
+                        className={`progress-line ${getProgressClass(
+                          order.status,
+                          "Processing"
+                        )}`}
+                      ></div>
+
+                      <div
+                        className={`progress-step ${getProgressClass(
+                          order.status,
+                          "Processing"
+                        )}`}
+                      >
+                        <span></span>
+                        <p>Processing</p>
+                      </div>
+
+                      <div
+                        className={`progress-line ${getProgressClass(
+                          order.status,
+                          "Shipped"
+                        )}`}
+                      ></div>
+
+                      <div
+                        className={`progress-step ${getProgressClass(
+                          order.status,
+                          "Shipped"
+                        )}`}
+                      >
+                        <span></span>
+                        <p>Shipped</p>
+                      </div>
+
+                      <div
+                        className={`progress-line ${getProgressClass(
+                          order.status,
+                          "Delivered"
+                        )}`}
+                      ></div>
+
+                      <div
+                        className={`progress-step ${getProgressClass(
+                          order.status,
+                          "Delivered"
+                        )}`}
+                      >
+                        <span></span>
+                        <p>Delivered</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="order-products-list">
+                    {order.products?.map((item, productIndex) => {
+                      const product = getProduct(item);
+                      const quantity = Number(item.quantity || 1);
+                      const price = getItemPrice(item);
+                      const itemTotal = price * quantity;
+
+                      const itemPlatformFee =
+                        item.platformFee !== undefined
+                          ? Number(item.platformFee || 0)
+                          : Math.round(itemTotal * 0.05);
+
+                      const itemVendorPayout =
+                        item.vendorPayout !== undefined
+                          ? Number(item.vendorPayout || 0)
+                          : itemTotal - itemPlatformFee;
+
+                      return (
+                        <div
+                          key={product?._id || productIndex}
+                          className="order-product-row"
+                        >
+                          <img
+                            src={product?.image}
+                            alt={product?.name || "Product"}
+                            className="order-product-img"
+                          />
+
+                          <div className="order-product-info">
+                            <Link to={`/product/${product?._id}`}>
+                              {product?.name || "Product"}
+                            </Link>
+
+                            <p>Quantity: {quantity}</p>
+
+                            <p className="order-address">
+                              Delivery Address: {order.shippingAddress}
+                            </p>
+
+                            {canSeeEarnings && (
+                              <div className="order-mini-payment">
+                                <span>Item Commission: ₹{itemPlatformFee}</span>
+                                <span>Vendor Gets: ₹{itemVendorPayout}</span>
+                              </div>
+                            )}
+
+                            <div className="order-status-note">
+                              Current Status: {order.status || "Processing"}
+                            </div>
+                          </div>
+
+                          <div className="order-price-box">
+                            <h3>₹{itemTotal}</h3>
+                            <p>
+                              ₹{price} × {quantity}
+                            </p>
+
+                            {user?.role === "buyer" && (
+                              <Link
+                                to={`/product/${product?._id}`}
+                                className="review-link"
+                              >
+                                View / Review Product
+                              </Link>
+                            )}
+
+                            {user?.role !== "buyer" && (
+                              <Link
+                                to={`/product/${product?._id}`}
+                                className="review-link"
+                              >
+                                View Product
+                              </Link>
+                            )}
                           </div>
                         </div>
-
-                        <div className="order-price-box">
-                          <h3>₹{itemTotal}</h3>
-                          <p>
-                            ₹{price} × {quantity}
-                          </p>
-
-                          <Link
-                            to={`/product/${product?._id}`}
-                            className="review-link"
-                          >
-                            View / Review Product
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -188,14 +401,15 @@ function Orders() {
             background:
               radial-gradient(circle at top left, rgba(255, 235, 196, 0.8), transparent 35%),
               linear-gradient(135deg, #f7f1e8 0%, #ead8bd 100%);
-            padding: clamp(18px, 2vw, 34px);
+            padding: clamp(12px, 2vw, 32px);
             box-sizing: border-box;
+            width: 100%;
           }
 
           .classic-orders-container {
             width: 100%;
-            max-width: 1250px;
-            margin: 0 auto;
+            max-width: none;
+            margin: 0;
           }
 
           .orders-hero {
@@ -210,6 +424,8 @@ function Orders() {
             align-items: center;
             gap: 20px;
             flex-wrap: wrap;
+            width: 100%;
+            box-sizing: border-box;
           }
 
           .orders-hero p {
@@ -234,7 +450,6 @@ function Orders() {
             font-weight: 700;
           }
 
-          .orders-hero button,
           .orders-empty-card button {
             background: #7a4f2a;
             color: white;
@@ -258,6 +473,8 @@ function Orders() {
             border-radius: 22px;
             overflow: hidden;
             box-shadow: 0 8px 22px rgba(62, 39, 35, 0.14);
+            width: 100%;
+            box-sizing: border-box;
           }
 
           .order-card-header {
@@ -289,7 +506,8 @@ function Orders() {
             text-align: right;
           }
 
-          .order-header-right span {
+          .order-header-right span,
+          .status-pill {
             display: inline-block;
             margin-top: 8px;
             background: #fff1d8;
@@ -299,6 +517,76 @@ function Orders() {
             font-weight: 900;
           }
 
+          .status-pill.Delivered {
+            background: #dff5df;
+            color: #2e7d32;
+          }
+
+          .status-pill.Shipped {
+            background: #e3f2fd;
+            color: #1565c0;
+          }
+
+          .status-pill.Cancelled {
+            background: #ffebee;
+            color: #b71c1c;
+          }
+
+          .order-payment-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 14px;
+            padding: 22px 28px;
+            background: #fffaf2;
+            border-bottom: 1px solid #ead7bd;
+          }
+
+          .payment-summary-box {
+            background: #fff1d8;
+            border: 1px solid #d7b98a;
+            border-radius: 14px;
+            padding: 16px;
+          }
+
+          .payment-summary-box p {
+            margin: 0 0 8px;
+            color: #7a5c44;
+            font-weight: 900;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+          }
+
+          .payment-summary-box h3 {
+            margin: 0;
+            color: #3e2723;
+            font-family: "Segoe UI", Arial, sans-serif;
+            font-size: clamp(18px, 1.2vw, 24px);
+          }
+
+          .order-status-select {
+            width: 100%;
+            padding: 11px 12px;
+            border-radius: 10px;
+            border: 1px solid #c8a77a;
+            background: #fffaf2;
+            color: #3e2723;
+            font-weight: 900;
+            cursor: pointer;
+          }
+
+          .payment-status.paid {
+            color: #2e7d32;
+          }
+
+          .payment-status.pending {
+            color: #ef6c00;
+          }
+
+          .payment-status.failed {
+            color: #b71c1c;
+          }
+
           .order-progress-box {
             padding: 22px 28px;
             display: flex;
@@ -306,6 +594,7 @@ function Orders() {
             justify-content: center;
             background: #fff8ef;
             border-bottom: 1px solid #ead7bd;
+            overflow-x: auto;
           }
 
           .progress-step {
@@ -337,7 +626,8 @@ function Orders() {
           }
 
           .progress-line {
-            width: min(130px, 14vw);
+            width: min(100px, 12vw);
+            min-width: 55px;
             height: 3px;
             background: #d7b98a;
             margin-bottom: 28px;
@@ -347,6 +637,14 @@ function Orders() {
             background: #2e7d32;
           }
 
+          .cancelled-order-box {
+            background: #ffebee;
+            color: #b71c1c;
+            padding: 18px 28px;
+            font-weight: 900;
+            border-bottom: 1px solid #ead7bd;
+          }
+
           .order-products-list {
             display: flex;
             flex-direction: column;
@@ -354,9 +652,9 @@ function Orders() {
 
           .order-product-row {
             display: grid;
-            grid-template-columns: 125px 1fr 190px;
-            gap: 22px;
-            padding: 24px 28px;
+            grid-template-columns: clamp(95px, 9vw, 135px) minmax(0, 1fr) clamp(155px, 15vw, 210px);
+            gap: clamp(14px, 2vw, 24px);
+            padding: clamp(16px, 2vw, 28px);
             border-bottom: 1px solid #ead7bd;
             align-items: center;
           }
@@ -366,20 +664,28 @@ function Orders() {
           }
 
           .order-product-img {
-            width: 125px;
-            height: 115px;
+            width: clamp(95px, 9vw, 135px);
+            height: clamp(90px, 8vw, 125px);
             object-fit: cover;
             border-radius: 14px;
             border: 1px solid #d7b98a;
             background: #f5f5f5;
           }
 
+          .order-product-info {
+            min-width: 0;
+          }
+
           .order-product-info a {
+            display: block;
             color: #3e2723;
             font-family: Georgia, serif;
             font-size: clamp(20px, 1.3vw, 28px);
             font-weight: 900;
             text-decoration: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
 
           .order-product-info a:hover {
@@ -399,11 +705,29 @@ function Orders() {
             padding: 10px 14px;
             border-radius: 10px;
             margin-top: 12px !important;
+            word-break: break-word;
+          }
+
+          .order-mini-payment {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+          }
+
+          .order-mini-payment span {
+            background: #f4dfc1;
+            color: #3e2723;
+            border: 1px solid #d7b98a;
+            padding: 7px 12px;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 900;
           }
 
           .order-status-note {
             display: inline-block;
-            margin-top: 8px;
+            margin-top: 10px;
             background: #fff1d8;
             color: #5d4037;
             padding: 8px 13px;
@@ -414,6 +738,7 @@ function Orders() {
 
           .order-price-box {
             text-align: right;
+            min-width: 0;
           }
 
           .order-price-box h3 {
@@ -461,16 +786,14 @@ function Orders() {
             color: #5d4037;
           }
 
-          @media (max-width: 800px) {
+          @media (max-width: 1000px) {
             .order-product-row {
-              grid-template-columns: 100px 1fr;
-              gap: 16px;
-              padding: 18px;
+              grid-template-columns: 115px minmax(0, 1fr);
             }
 
             .order-product-img {
-              width: 100px;
-              height: 100px;
+              width: 115px;
+              height: 105px;
             }
 
             .order-price-box {
@@ -480,28 +803,120 @@ function Orders() {
               padding-top: 14px;
             }
 
-            .order-progress-box {
-              overflow-x: auto;
-              justify-content: flex-start;
+            .review-link {
+              margin-top: 6px;
+            }
+          }
+
+          @media (max-width: 700px) {
+            .orders-hero {
+              flex-direction: column;
+              align-items: flex-start;
+            }
+
+            .order-card-header {
+              flex-direction: column;
+              align-items: flex-start;
             }
 
             .order-header-right {
               text-align: left;
             }
-          }
 
-          @media (max-width: 520px) {
+            .order-payment-summary {
+              grid-template-columns: 1fr;
+              padding: 18px;
+            }
+
+            .order-progress-box {
+              justify-content: flex-start;
+              padding: 18px;
+            }
+
+            .progress-step {
+              min-width: 75px;
+            }
+
+            .progress-line {
+              min-width: 55px;
+            }
+
             .order-product-row {
-              grid-template-columns: 85px 1fr;
+              grid-template-columns: 95px minmax(0, 1fr);
+              gap: 13px;
+              padding: 15px;
             }
 
             .order-product-img {
-              width: 85px;
-              height: 85px;
+              width: 95px;
+              height: 90px;
             }
 
             .order-product-info a {
               font-size: 18px;
+            }
+
+            .order-product-info p {
+              font-size: 14px;
+            }
+
+            .order-status-note {
+              font-size: 12px;
+            }
+          }
+
+          @media (max-width: 480px) {
+            .classic-orders-page {
+              padding: 10px;
+            }
+
+            .orders-hero {
+              padding: 20px;
+              border-radius: 16px;
+            }
+
+            .orders-hero h1 {
+              font-size: 32px;
+            }
+
+            .classic-order-card {
+              border-radius: 16px;
+            }
+
+            .order-card-header {
+              padding: 18px;
+            }
+
+            .order-card-header h2 {
+              font-size: 20px;
+            }
+
+            .order-product-row {
+              grid-template-columns: 82px minmax(0, 1fr);
+              padding: 12px;
+            }
+
+            .order-product-img {
+              width: 82px;
+              height: 82px;
+              border-radius: 10px;
+            }
+
+            .order-product-info a {
+              font-size: 16px;
+            }
+
+            .order-address {
+              padding: 8px 10px;
+              font-size: 13px;
+            }
+
+            .order-price-box {
+              grid-column: 1 / 3;
+            }
+
+            .order-price-box h3 {
+              font-size: 22px;
             }
 
             .review-link {
@@ -510,202 +925,6 @@ function Orders() {
               box-sizing: border-box;
             }
           }
-            /* Full responsive My Orders page */
-
-.classic-orders-container {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-}
-
-.classic-orders-page {
-  width: 100% !important;
-  padding: clamp(12px, 2vw, 32px) !important;
-  box-sizing: border-box !important;
-}
-
-.orders-hero {
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.classic-order-card {
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.order-product-row {
-  grid-template-columns: clamp(95px, 9vw, 135px) minmax(0, 1fr) clamp(155px, 15vw, 210px) !important;
-  gap: clamp(14px, 2vw, 24px) !important;
-  padding: clamp(16px, 2vw, 28px) !important;
-}
-
-.order-product-img {
-  width: clamp(95px, 9vw, 135px) !important;
-  height: clamp(90px, 8vw, 125px) !important;
-}
-
-.order-product-info {
-  min-width: 0 !important;
-}
-
-.order-product-info a {
-  display: block !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
-.order-address {
-  word-break: break-word !important;
-}
-
-.order-price-box {
-  min-width: 0 !important;
-}
-
-/* Laptop and tablet */
-@media (max-width: 1000px) {
-  .order-product-row {
-    grid-template-columns: 115px minmax(0, 1fr) !important;
-  }
-
-  .order-product-img {
-    width: 115px !important;
-    height: 105px !important;
-  }
-
-  .order-price-box {
-    grid-column: 1 / 3 !important;
-    text-align: left !important;
-    border-top: 1px solid #ead7bd !important;
-    padding-top: 14px !important;
-  }
-
-  .review-link {
-    margin-top: 6px !important;
-  }
-}
-
-/* Tablet and large phone */
-@media (max-width: 700px) {
-  .orders-hero {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-  }
-
-  .orders-hero button {
-    width: 100% !important;
-  }
-
-  .order-card-header {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-  }
-
-  .order-header-right {
-    text-align: left !important;
-  }
-
-  .order-progress-box {
-    justify-content: flex-start !important;
-    overflow-x: auto !important;
-    padding: 18px !important;
-  }
-
-  .progress-step {
-    min-width: 75px !important;
-  }
-
-  .progress-line {
-    min-width: 60px !important;
-  }
-
-  .order-product-row {
-    grid-template-columns: 95px minmax(0, 1fr) !important;
-    gap: 13px !important;
-    padding: 15px !important;
-  }
-
-  .order-product-img {
-    width: 95px !important;
-    height: 90px !important;
-  }
-
-  .order-product-info a {
-    font-size: 18px !important;
-  }
-
-  .order-product-info p {
-    font-size: 14px !important;
-  }
-
-  .order-status-note {
-    font-size: 12px !important;
-  }
-}
-
-/* Small phone */
-@media (max-width: 480px) {
-  .classic-orders-page {
-    padding: 10px !important;
-  }
-
-  .orders-hero {
-    padding: 20px !important;
-    border-radius: 16px !important;
-  }
-
-  .orders-hero h1 {
-    font-size: 32px !important;
-  }
-
-  .classic-order-card {
-    border-radius: 16px !important;
-  }
-
-  .order-card-header {
-    padding: 18px !important;
-  }
-
-  .order-card-header h2 {
-    font-size: 20px !important;
-  }
-
-  .order-product-row {
-    grid-template-columns: 82px minmax(0, 1fr) !important;
-    padding: 12px !important;
-  }
-
-  .order-product-img {
-    width: 82px !important;
-    height: 82px !important;
-    border-radius: 10px !important;
-  }
-
-  .order-product-info a {
-    font-size: 16px !important;
-  }
-
-  .order-address {
-    padding: 8px 10px !important;
-    font-size: 13px !important;
-  }
-
-  .order-price-box {
-    grid-column: 1 / 3 !important;
-  }
-
-  .order-price-box h3 {
-    font-size: 22px !important;
-  }
-
-  .review-link {
-    width: 100% !important;
-    text-align: center !important;
-    box-sizing: border-box !important;
-  }
-}
         `}
       </style>
     </div>

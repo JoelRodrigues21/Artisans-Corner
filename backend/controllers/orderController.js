@@ -76,7 +76,7 @@ const createOrder = async (req, res) => {
       totalPlatformFee,
       totalVendorPayout,
       shippingAddress,
-      paymentMethod: "Simulated Payment",
+      paymentMethod: "Demo Payment (Test Mode)",
       paymentStatus: "Paid",
       status: "Processing",
     });
@@ -88,9 +88,9 @@ const createOrder = async (req, res) => {
     }
 
     const populatedOrder = await Order.findById(order._id)
-      .populate("buyer", "name email phone")
+      .populate("buyer", "name email phone role")
       .populate("products.product")
-      .populate("products.vendor", "name email");
+      .populate("products.vendor", "name email role");
 
     res.status(201).json(populatedOrder);
   } catch (error) {
@@ -103,16 +103,97 @@ const createOrder = async (req, res) => {
 
 const getOrders = async (req, res) => {
   try {
-    const orders = await Order.find()
-      .populate("buyer", "name email phone")
+    const userId = req.user._id || req.user.id;
+    const userRole = req.user.role;
+
+    let query = {};
+
+    if (userRole === "buyer") {
+      query = { buyer: userId };
+    }
+
+    if (userRole === "vendor") {
+      query = { "products.vendor": userId };
+    }
+
+    const orders = await Order.find(query)
+      .populate("buyer", "name email phone role")
       .populate("products.product")
-      .populate("products.vendor", "name email")
+      .populate("products.vendor", "name email role")
       .sort({ createdAt: -1 });
 
     res.json(orders);
   } catch (error) {
     res.status(500).json({
       message: "Failed to fetch orders",
+      error: error.message,
+    });
+  }
+};
+
+const updateOrderStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    const validStatuses = ["Processing", "Shipped", "Delivered", "Cancelled"];
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid order status",
+      });
+    }
+
+    const userId = req.user._id || req.user.id;
+    const userRole = req.user.role;
+
+    const order = await Order.findById(req.params.id)
+      .populate("buyer", "name email phone role")
+      .populate("products.product")
+      .populate("products.vendor", "name email role");
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+      });
+    }
+
+    const vendorOwnsOrder = order.products.some(
+      (item) => String(item.vendor?._id || item.vendor) === String(userId)
+    );
+
+    if (userRole === "buyer") {
+      return res.status(403).json({
+        message: "Buyer cannot update order status",
+      });
+    }
+
+    if (userRole === "vendor" && !vendorOwnsOrder) {
+      return res.status(403).json({
+        message: "You can update only your own product orders",
+      });
+    }
+
+    if (userRole !== "admin" && userRole !== "vendor" && !vendorOwnsOrder) {
+      return res.status(403).json({
+        message: "Not allowed to update order status",
+      });
+    }
+
+    order.status = status;
+    await order.save();
+
+    const updatedOrder = await Order.findById(order._id)
+      .populate("buyer", "name email phone role")
+      .populate("products.product")
+      .populate("products.vendor", "name email role");
+
+    res.json({
+      message: "Order status updated successfully",
+      order: updatedOrder,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to update order status",
       error: error.message,
     });
   }
@@ -184,5 +265,6 @@ const getVendorAnalytics = async (req, res) => {
 module.exports = {
   createOrder,
   getOrders,
+  updateOrderStatus,
   getVendorAnalytics,
 };

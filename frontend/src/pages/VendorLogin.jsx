@@ -2,14 +2,11 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
 
-function Register() {
+function VendorLogin() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    name: "",
     email: "",
-    phone: "",
-    gender: "",
     password: "",
   });
 
@@ -20,65 +17,54 @@ function Register() {
     });
   };
 
-  const handleRegister = async (e) => {
+  const handleVendorLogin = async (e) => {
     e.preventDefault();
 
     try {
-      await API.post("/auth/register", {
-        ...formData,
-        role: "buyer",
-      });
+      const res = await API.post("/auth/login", formData);
+      const user = res.data.user;
 
-      alert("Buyer registered successfully. Please login.");
-      navigate("/login");
+      if (user.role !== "vendor") {
+        alert("This is Seller Login. Please login with a vendor account.");
+        return;
+      }
+
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      navigate("/vendor");
     } catch (error) {
       console.log(error);
-      alert(error.response?.data?.message || "Registration failed");
+      alert(error.response?.data?.message || "Seller login failed");
     }
   };
 
   return (
-    <div className="buyer-register-page">
-      <div className="buyer-register-card">
-        <h1>Buyer Register</h1>
+    <div className="seller-login-page-clean">
+      <button
+        type="button"
+        className="seller-back-top-btn"
+        onClick={() => navigate("/buyer")}
+      >
+        ← Back
+      </button>
 
-        <p className="buyer-register-subtitle">
-          Create your buyer account to shop handmade treasures.
+      <div className="seller-login-card-clean">
+        <h1>Seller Login</h1>
+
+        <p className="seller-login-subtitle-clean">
+          Login to manage products, orders, stock, and earnings.
         </p>
 
-        <form onSubmit={handleRegister} className="buyer-register-form">
-          <input
-            type="text"
-            name="name"
-            placeholder="Full Name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
-
+        <form onSubmit={handleVendorLogin} className="seller-login-form-clean">
           <input
             type="email"
             name="email"
-            placeholder="Email ID"
+            placeholder="Seller Email ID"
             value={formData.email}
             onChange={handleChange}
             required
           />
-
-          <input
-            type="text"
-            name="phone"
-            placeholder="Phone Number"
-            value={formData.phone}
-            onChange={handleChange}
-          />
-
-          <select name="gender" value={formData.gender} onChange={handleChange}>
-            <option value="">Select Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
 
           <input
             type="password"
@@ -89,22 +75,22 @@ function Register() {
             required
           />
 
-          <button type="submit">Register</button>
+          <button type="submit">Login</button>
         </form>
 
-        <p className="buyer-register-login">
-          Already have an account? <Link to="/login">Login here</Link>
+        <p className="seller-register-clean">
+          New seller? <Link to="/vendor-register">Register here</Link>
         </p>
       </div>
 
       <style>
         {`
-          .buyer-register-page,
-          .buyer-register-page * {
+          .seller-login-page-clean,
+          .seller-login-page-clean * {
             box-sizing: border-box;
           }
 
-          .buyer-register-page {
+          .seller-login-page-clean {
             width: 100%;
             min-height: 100vh;
             background:
@@ -114,10 +100,26 @@ function Register() {
             align-items: center;
             justify-content: center;
             padding: 18px;
+            position: relative;
           }
 
-          .buyer-register-card {
-            width: min(100%, 450px);
+          .seller-back-top-btn {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            background: #3e2723;
+            color: #fff8ef;
+            border: 1px solid #c8a77a;
+            border-radius: 30px;
+            padding: 11px 22px;
+            font-family: Georgia, "Times New Roman", serif;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 5px 14px rgba(62, 39, 35, 0.2);
+          }
+
+          .seller-login-card-clean {
+            width: min(100%, 430px);
             background: rgba(255, 250, 242, 0.97);
             border: 1px solid #c8a77a;
             border-radius: 22px;
@@ -126,35 +128,34 @@ function Register() {
             box-shadow: 0 10px 28px rgba(62, 39, 35, 0.18);
           }
 
-          .buyer-register-card h1 {
+          .seller-login-card-clean h1 {
             margin: 0;
             color: #3e2723;
             font-family: Georgia, "Times New Roman", serif;
-            font-size: 42px;
+            font-size: 44px;
             line-height: 1.1;
           }
 
-          .buyer-register-subtitle {
+          .seller-login-subtitle-clean {
             width: 100%;
-            max-width: 320px;
+            max-width: 310px;
             margin: 14px auto 22px;
             color: #5d4037;
             font-weight: 800;
             line-height: 1.35;
           }
 
-          .buyer-register-form {
+          .seller-login-form-clean {
             width: 100%;
-            max-width: 320px;
+            max-width: 310px;
             margin: 0 auto;
             display: flex;
             flex-direction: column;
             gap: 14px;
           }
 
-          .buyer-register-form input,
-          .buyer-register-form select,
-          .buyer-register-form button {
+          .seller-login-form-clean input,
+          .seller-login-form-clean button {
             width: 100%;
             height: 46px;
             border-radius: 12px;
@@ -162,8 +163,7 @@ function Register() {
             font-weight: 800;
           }
 
-          .buyer-register-form input,
-          .buyer-register-form select {
+          .seller-login-form-clean input {
             border: 1px solid #c8a77a;
             background: #fff8ef;
             color: #3e2723;
@@ -171,51 +171,34 @@ function Register() {
             outline: none;
           }
 
-          .buyer-register-form input::placeholder {
-            color: #6d5a4d;
-          }
-
-          .buyer-register-form button {
+          .seller-login-form-clean button {
             border: none;
             background: #7a4f2a;
             color: white;
             cursor: pointer;
             font-family: Georgia, "Times New Roman", serif;
-            box-shadow: 0 5px 14px rgba(62, 39, 35, 0.18);
           }
 
-          .buyer-register-form button:hover {
-            background: #5c371d;
-          }
-
-          .buyer-register-login {
+          .seller-register-clean {
             margin: 18px 0 0;
             color: #3e2723;
             font-weight: 800;
           }
 
-          .buyer-register-login a {
+          .seller-register-clean a {
             color: #7a4f2a;
             font-weight: 900;
             text-decoration: none;
           }
 
-          .buyer-register-login a:hover {
-            text-decoration: underline;
-          }
-
           @media (max-width: 480px) {
-            .buyer-register-card {
+            .seller-login-page-clean {
+              align-items: flex-start;
+              padding-top: 90px;
+            }
+
+            .seller-login-card-clean {
               padding: 28px 20px;
-              border-radius: 18px;
-            }
-
-            .buyer-register-card h1 {
-              font-size: 36px;
-            }
-
-            .buyer-register-form {
-              max-width: 100%;
             }
           }
         `}
@@ -224,4 +207,4 @@ function Register() {
   );
 }
 
-export default Register;
+export default VendorLogin;

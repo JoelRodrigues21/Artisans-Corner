@@ -1,31 +1,39 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+
 import Home from "./pages/Home";
 import Login from "./pages/Login";
+import VendorLogin from "./pages/VendorLogin";
 import Register from "./pages/Register";
+import VendorRegister from "./pages/VendorRegister";
 import AdminLogin from "./pages/AdminLogin";
+
 import ProductDetail from "./pages/ProductDetail";
-import Cart from "./pages/Cart";
-import VendorDashboard from "./pages/VendorDashboard";
-import BuyerDashboard from "./pages/BuyerDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import Orders from "./pages/Orders";
-import Checkout from "./pages/Checkout";
 import Wishlist from "./pages/Wishlist";
-import ProtectedRoute from "./components/ProtectedRoute";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import Orders from "./pages/Orders";
+import PaymentSuccess from "./pages/PaymentSuccess";
+
+import BuyerDashboard from "./pages/BuyerDashboard";
+import VendorDashboard from "./pages/VendorDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
-    <BrowserRouter>
+    <>
       <Navbar />
 
       <Routes>
         <Route path="/" element={<Home />} />
 
         <Route path="/login" element={<Login />} />
+        <Route path="/vendor-login" element={<VendorLogin />} />
 
         <Route path="/register" element={<Register />} />
+        <Route path="/vendor-register" element={<VendorRegister />} />
 
         <Route path="/admin-login" element={<AdminLogin />} />
 
@@ -68,6 +76,15 @@ function App() {
         />
 
         <Route
+          path="/payment-success"
+          element={
+            <ProtectedRoute allowedRoles={["buyer", "admin"]}>
+              <PaymentSuccess />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/buyer"
           element={
             <ProtectedRoute allowedRoles={["buyer", "admin"]}>
@@ -94,16 +111,10 @@ function App() {
           }
         />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["vendor", "admin"]}>
-              <VendorDashboard />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/dashboard" element={<Navigate to="/buyer" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
-    </BrowserRouter>
+    </>
   );
 }
 

@@ -1,11 +1,26 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 
 function AdminDashboard() {
-  const [users, setUsers] = useState([]);
+  const navigate = useNavigate();
+
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
-  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  let user = null;
+
+  try {
+    const savedUser = localStorage.getItem("user");
+    user = savedUser ? JSON.parse(savedUser) : null;
+  } catch (error) {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    user = null;
+  }
+
+  const statusOptions = ["Processing", "Shipped", "Delivered", "Cancelled"];
 
   useEffect(() => {
     fetchAdminData();
@@ -13,336 +28,461 @@ function AdminDashboard() {
 
   const fetchAdminData = async () => {
     try {
-      const usersRes = await API.get("/auth/users");
-      const productsRes = await API.get("/products");
-      const ordersRes = await API.get("/orders");
-      const reviewsRes = await API.get("/reviews/all");
+      const productRes = await API.get("/products");
+      const orderRes = await API.get("/orders");
 
-      setUsers(usersRes.data);
-      setProducts(productsRes.data);
-      setOrders(ordersRes.data);
-      setReviews(reviewsRes.data);
+      setProducts(Array.isArray(productRes.data) ? productRes.data : []);
+      setOrders(Array.isArray(orderRes.data) ? orderRes.data : []);
     } catch (error) {
       console.log(error);
-      alert("Failed to load admin dashboard data");
+      alert("Failed to load admin data");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const deleteUser = async (id) => {
-    if (!window.confirm("Delete this user?")) return;
+  const updateOrderStatus = async (orderId, status) => {
+    try {
+      const res = await API.put(`/orders/${orderId}/status`, { status });
+      const updatedOrder = res.data?.order;
 
-    await API.delete(`/auth/users/${id}`);
-    fetchAdminData();
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order._id === orderId
+            ? updatedOrder || { ...order, status }
+            : order
+        )
+      );
+
+      alert("Order status updated");
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to update order status");
+    }
   };
 
-  const deleteProduct = async (id) => {
-    if (!window.confirm("Delete this product?")) return;
-
-    await API.delete(`/products/${id}`);
-    fetchAdminData();
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/admin-login");
   };
 
-  const deleteOrder = async (id) => {
-    if (!window.confirm("Delete this order?")) return;
+  const getOrderTotal = (order) => {
+    if (order.totalAmount) return Number(order.totalAmount || 0);
 
-    await API.delete(`/orders/${id}`);
-    fetchAdminData();
-  };
-
-  const deleteReview = async (id) => {
-    if (!window.confirm("Delete this review?")) return;
-
-    await API.delete(`/reviews/${id}`);
-    fetchAdminData();
-  };
-
-  const updateOrderStatus = async (id, status) => {
-    await API.put(`/orders/${id}/status`, { status });
-    fetchAdminData();
+    return (
+      order.products?.reduce((sum, item) => {
+        const product = item.product || item.productId || item;
+        const price = Number(item.price || product?.price || 0);
+        const quantity = Number(item.quantity || 1);
+        return sum + price * quantity;
+      }, 0) || 0
+    );
   };
 
   const totalRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.totalAmount || 0),
+    (sum, order) => sum + getOrderTotal(order),
     0
   );
 
-  const platformFee = orders.reduce(
-    (sum, order) =>
-      sum +
-      Number(
-        order.platformFee ||
-          Number(order.totalAmount || 0) * 0.05
-      ),
-    0
-  );
-
-  const vendorPayout = totalRevenue - platformFee;
-
-  const cardStyle = {
-    backgroundColor: "#fffaf2",
-    padding: "25px",
-    borderRadius: "16px",
-    border: "1px solid #d6c1a3",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-  };
-
-  const tableStyle = {
-    width: "100%",
-    borderCollapse: "collapse",
-    backgroundColor: "#fffaf2",
-    borderRadius: "14px",
-    overflow: "hidden",
-    marginTop: "15px",
-  };
-
-  const thStyle = {
-    backgroundColor: "#3e2723",
-    color: "white",
-    padding: "12px",
-    textAlign: "left",
-  };
-
-  const tdStyle = {
-    padding: "12px",
-    borderBottom: "1px solid #e0cdb8",
-  };
+  const platformCommission = Math.round(totalRevenue * 0.05);
+  const vendorPayout = totalRevenue - platformCommission;
 
   return (
-    <>
-      
-
-      <div
-        style={{
-          padding: "40px",
-          backgroundColor: "#faf6ef",
-          minHeight: "100vh",
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: "Georgia, serif",
-            color: "#3e2723",
-            marginBottom: "10px",
-          }}
-        >
-          Admin Dashboard
-        </h1>
-
-        <p style={{ color: "#5d4037", marginBottom: "30px" }}>
-          Manage users, products, orders, reviews, revenue and platform commission.
-        </p>
-
-        {/* SUMMARY CARDS */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap: "20px",
-            marginBottom: "40px",
-          }}
-        >
-          <div style={cardStyle}>
-            <h3>Total Users</h3>
-            <h2>{users.length}</h2>
+    <div className="admin-classic-page">
+      <div className="admin-classic-container">
+        <section className="admin-classic-hero">
+          <div>
+            <p>Admin Panel</p>
+            <h1>Welcome, {user?.name || "Admin"}</h1>
+            <span>
+              Manage marketplace products, orders, revenue, and commission.
+            </span>
           </div>
 
-          <div style={cardStyle}>
-            <h3>Total Products</h3>
+          <button onClick={handleLogout}>Logout</button>
+        </section>
+
+        <section className="admin-classic-stats">
+          <div className="admin-classic-stat-card">
+            <p>Total Products</p>
             <h2>{products.length}</h2>
           </div>
 
-          <div style={cardStyle}>
-            <h3>Total Orders</h3>
+          <div className="admin-classic-stat-card">
+            <p>Total Orders</p>
             <h2>{orders.length}</h2>
           </div>
 
-          <div style={cardStyle}>
-            <h3>Total Reviews</h3>
-            <h2>{reviews.length}</h2>
-          </div>
-
-          <div style={cardStyle}>
-            <h3>Total Revenue</h3>
+          <div className="admin-classic-stat-card">
+            <p>Total Revenue</p>
             <h2>₹{totalRevenue}</h2>
           </div>
 
-          <div style={cardStyle}>
-            <h3>Platform Fee 5%</h3>
-            <h2>₹{platformFee.toFixed(2)}</h2>
+          <div className="admin-classic-stat-card">
+            <p>Platform Fee 5%</p>
+            <h2>₹{platformCommission}</h2>
           </div>
 
-          <div style={cardStyle}>
-            <h3>Vendor Payout</h3>
-            <h2>₹{vendorPayout.toFixed(2)}</h2>
+          <div className="admin-classic-stat-card">
+            <p>Vendor Payout 95%</p>
+            <h2>₹{vendorPayout}</h2>
           </div>
+        </section>
 
-          <div style={cardStyle}>
-            <h3>Admin Control</h3>
-            <h2>Active</h2>
-          </div>
-        </div>
+        {loading ? (
+          <section className="admin-classic-section">
+            <h2>Loading admin data...</h2>
+          </section>
+        ) : (
+          <>
+            <section className="admin-classic-section">
+              <div className="admin-section-title">
+                <p>Marketplace Products</p>
+                <h2>All Products</h2>
+              </div>
 
-        {/* USERS */}
-        <h2>Users Management</h2>
+              {products.length === 0 ? (
+                <div className="admin-empty-box">No products found.</div>
+              ) : (
+                <div className="admin-table-scroll">
+                  <table className="admin-classic-table">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th>Vendor</th>
+                        <th>Price</th>
+                        <th>Stock</th>
+                      </tr>
+                    </thead>
 
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Name</th>
-              <th style={thStyle}>Email</th>
-              <th style={thStyle}>Role</th>
-              <th style={thStyle}>Action</th>
-            </tr>
-          </thead>
+                    <tbody>
+                      {products.map((product) => (
+                        <tr key={product._id}>
+                          <td>{product.name || "Product"}</td>
+                          <td>
+                            {product.vendor?.name ||
+                              product.vendorName ||
+                              "Vendor"}
+                          </td>
+                          <td>₹{product.price || 0}</td>
+                          <td>{product.stock ?? "N/A"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
 
-          <tbody>
-            {users.map((user) => (
-              <tr key={user._id}>
-                <td style={tdStyle}>{user.name}</td>
-                <td style={tdStyle}>{user.email}</td>
-                <td style={tdStyle}>{user.role}</td>
-                <td style={tdStyle}>
-                  <button onClick={() => deleteUser(user._id)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            <section className="admin-classic-section">
+              <div className="admin-section-title">
+                <p>Order Management</p>
+                <h2>All Orders</h2>
+              </div>
 
-        {/* PRODUCTS */}
-        <h2 style={{ marginTop: "45px" }}>Products Management</h2>
+              {orders.length === 0 ? (
+                <div className="admin-empty-box">No orders found.</div>
+              ) : (
+                <div className="admin-table-scroll">
+                  <table className="admin-classic-table">
+                    <thead>
+                      <tr>
+                        <th>Buyer</th>
+                        <th>Total</th>
+                        <th>Payment</th>
+                        <th>Status</th>
+                        <th>Update Status</th>
+                      </tr>
+                    </thead>
 
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Product</th>
-              <th style={thStyle}>Category</th>
-              <th style={thStyle}>Price</th>
-              <th style={thStyle}>Vendor</th>
-              <th style={thStyle}>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {products.map((product) => (
-              <tr key={product._id}>
-                <td style={tdStyle}>{product.name}</td>
-                <td style={tdStyle}>{product.category || "Uncategorized"}</td>
-                <td style={tdStyle}>₹{product.price}</td>
-                <td style={tdStyle}>
-                  {product.vendor?.name || "Unknown Vendor"}
-                </td>
-                <td style={tdStyle}>
-                  <button onClick={() => deleteProduct(product._id)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {/* ORDERS */}
-        <h2 style={{ marginTop: "45px" }}>Orders Management</h2>
-
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Buyer</th>
-              <th style={thStyle}>Amount</th>
-              <th style={thStyle}>Platform Fee</th>
-              <th style={thStyle}>Vendor Payout</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {orders.map((order) => {
-              const orderFee =
-                order.platformFee || Number(order.totalAmount || 0) * 0.05;
-
-              const orderPayout =
-                order.vendorPayout ||
-                Number(order.totalAmount || 0) - orderFee;
-
-              return (
-                <tr key={order._id}>
-                  <td style={tdStyle}>
-                    {order.buyer?.name || "Unknown Buyer"}
-                  </td>
-
-                  <td style={tdStyle}>₹{order.totalAmount}</td>
-
-                  <td style={tdStyle}>₹{orderFee.toFixed(2)}</td>
-
-                  <td style={tdStyle}>₹{orderPayout.toFixed(2)}</td>
-
-                  <td style={tdStyle}>
-                    <select
-                      value={order.status}
-                      onChange={(e) =>
-                        updateOrderStatus(order._id, e.target.value)
-                      }
-                    >
-                      <option value="Processing">Processing</option>
-                      <option value="Shipped">Shipped</option>
-                      <option value="Delivered">Delivered</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </td>
-
-                  <td style={tdStyle}>
-                    <button onClick={() => deleteOrder(order._id)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        {/* REVIEWS */}
-        <h2 style={{ marginTop: "45px" }}>Reviews Management</h2>
-
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Product</th>
-              <th style={thStyle}>User</th>
-              <th style={thStyle}>Rating</th>
-              <th style={thStyle}>Comment</th>
-              <th style={thStyle}>Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {reviews.map((review) => (
-              <tr key={review._id}>
-                <td style={tdStyle}>
-                  {review.product?.name || "Unknown Product"}
-                </td>
-
-                <td style={tdStyle}>{review.user?.name || "Unknown User"}</td>
-
-                <td style={tdStyle}>⭐ {review.rating}</td>
-
-                <td style={tdStyle}>{review.comment}</td>
-
-                <td style={tdStyle}>
-                  <button onClick={() => deleteReview(review._id)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    <tbody>
+                      {orders.map((order) => (
+                        <tr key={order._id}>
+                          <td>
+                            {order.buyer?.name ||
+                              order.buyerName ||
+                              "Buyer"}
+                          </td>
+                          <td>₹{getOrderTotal(order)}</td>
+                          <td>{order.paymentStatus || "Paid"}</td>
+                          <td>
+                            <span className={`admin-status ${order.status}`}>
+                              {order.status || "Processing"}
+                            </span>
+                          </td>
+                          <td>
+                            <select
+                              value={order.status || "Processing"}
+                              onChange={(e) =>
+                                updateOrderStatus(order._id, e.target.value)
+                              }
+                            >
+                              {statusOptions.map((status) => (
+                                <option key={status} value={status}>
+                                  {status}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </div>
-    </>
+
+      <style>
+        {`
+          .admin-classic-page,
+          .admin-classic-page * {
+            box-sizing: border-box;
+          }
+
+          .admin-classic-page {
+            width: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+            background:
+              radial-gradient(circle at top left, rgba(255, 235, 196, 0.72), transparent 35%),
+              linear-gradient(135deg, #f7f1e8 0%, #ead8bd 100%);
+            padding: 16px;
+          }
+
+          .admin-classic-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+          }
+
+          .admin-classic-hero,
+          .admin-classic-section,
+          .admin-classic-stat-card {
+            background: rgba(255, 250, 242, 0.97);
+            border: 1px solid #c8a77a;
+            border-radius: 18px;
+            box-shadow: 0 8px 22px rgba(62, 39, 35, 0.14);
+          }
+
+          .admin-classic-hero {
+            padding: 28px 34px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+          }
+
+          .admin-classic-hero p,
+          .admin-classic-stat-card p,
+          .admin-section-title p {
+            margin: 0 0 7px;
+            color: #7a5c44;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-size: 13px;
+          }
+
+          .admin-classic-hero h1 {
+            margin: 0;
+            color: #3e2723;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(34px, 4vw, 58px);
+            line-height: 1.08;
+          }
+
+          .admin-classic-hero span {
+            display: block;
+            margin-top: 8px;
+            color: #5d4037;
+            font-weight: 700;
+            line-height: 1.4;
+          }
+
+          .admin-classic-hero button {
+            background: linear-gradient(135deg, #8b1e1e, #5c0f0f);
+            color: #fff8ef;
+            border: 1px solid #d7b98a;
+            border-radius: 40px;
+            padding: 13px 28px;
+            font-weight: 900;
+            cursor: pointer;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 15px;
+            box-shadow: 0 6px 16px rgba(92, 15, 15, 0.25);
+          }
+
+          .admin-classic-stats {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 16px;
+          }
+
+          .admin-classic-stat-card {
+            padding: 22px;
+          }
+
+          .admin-classic-stat-card h2 {
+            margin: 0;
+            color: #3e2723;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(26px, 2.4vw, 36px);
+            line-height: 1.1;
+            overflow-wrap: anywhere;
+          }
+
+          .admin-classic-section {
+            width: 100%;
+            padding: 26px;
+            overflow: hidden;
+          }
+
+          .admin-section-title h2 {
+            margin: 0 0 20px;
+            color: #3e2723;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(30px, 3vw, 46px);
+            line-height: 1.1;
+          }
+
+          .admin-table-scroll {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid #ead7bd;
+            border-radius: 14px;
+          }
+
+          .admin-classic-table {
+            width: 100%;
+            min-width: 760px;
+            border-collapse: collapse;
+            background: #fffaf2;
+          }
+
+          .admin-classic-table th {
+            background: #3e2723;
+            color: #fff8ef;
+            text-align: left;
+            padding: 15px;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 15px;
+          }
+
+          .admin-classic-table td {
+            padding: 15px;
+            border-bottom: 1px solid #ead7bd;
+            color: #3e2723;
+            font-weight: 800;
+            vertical-align: middle;
+          }
+
+          .admin-classic-table tr:last-child td {
+            border-bottom: none;
+          }
+
+          .admin-classic-table select {
+            width: 170px;
+            max-width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid #c8a77a;
+            background: #fff8ef;
+            color: #3e2723;
+            font-weight: 900;
+            outline: none;
+          }
+
+          .admin-status {
+            display: inline-block;
+            background: #fff1d8;
+            color: #3e2723;
+            padding: 7px 13px;
+            border-radius: 30px;
+            font-weight: 900;
+          }
+
+          .admin-status.Delivered {
+            background: #dff5df;
+            color: #2e7d32;
+          }
+
+          .admin-status.Shipped {
+            background: #e3f2fd;
+            color: #1565c0;
+          }
+
+          .admin-status.Cancelled {
+            background: #ffebee;
+            color: #b71c1c;
+          }
+
+          .admin-empty-box {
+            background: #fff8ef;
+            border: 1px solid #ead7bd;
+            border-radius: 14px;
+            padding: 18px;
+            color: #5d4037;
+            font-weight: 900;
+          }
+
+          @media (max-width: 750px) {
+            .admin-classic-page {
+              padding: 10px;
+            }
+
+            .admin-classic-hero {
+              flex-direction: column;
+              align-items: stretch;
+              padding: 22px;
+            }
+
+            .admin-classic-hero button {
+              width: 100%;
+            }
+
+            .admin-classic-section {
+              padding: 18px;
+            }
+
+            .admin-classic-stat-card {
+              padding: 18px;
+            }
+          }
+
+          @media (max-width: 420px) {
+            .admin-classic-page {
+              padding: 8px;
+            }
+
+            .admin-classic-hero,
+            .admin-classic-section,
+            .admin-classic-stat-card {
+              border-radius: 14px;
+            }
+
+            .admin-classic-hero,
+            .admin-classic-section {
+              padding: 16px;
+            }
+
+            .admin-classic-hero h1 {
+              font-size: 30px;
+            }
+
+            .admin-section-title h2 {
+              font-size: 28px;
+            }
+          }
+        `}
+      </style>
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import API from "../services/api";
 
-function Register() {
+function VendorRegister() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -20,37 +20,45 @@ function Register() {
     });
   };
 
-  const handleRegister = async (e) => {
+  const handleVendorRegister = async (e) => {
     e.preventDefault();
 
     try {
       await API.post("/auth/register", {
         ...formData,
-        role: "buyer",
+        role: "vendor",
       });
 
-      alert("Buyer registered successfully. Please login.");
-      navigate("/login");
+      alert("Seller registered successfully. Please login.");
+      navigate("/vendor-login");
     } catch (error) {
       console.log(error);
-      alert(error.response?.data?.message || "Registration failed");
+      alert(error.response?.data?.message || "Seller registration failed");
     }
   };
 
   return (
-    <div className="buyer-register-page">
-      <div className="buyer-register-card">
-        <h1>Buyer Register</h1>
+    <div className="vendor-register-page">
+      <button
+        type="button"
+        className="vendor-register-back-btn"
+        onClick={() => navigate("/vendor-login")}
+      >
+        ← Back
+      </button>
 
-        <p className="buyer-register-subtitle">
-          Create your buyer account to shop handmade treasures.
+      <div className="vendor-register-card">
+        <h1>Seller Register</h1>
+
+        <p className="vendor-register-subtitle">
+          Create your seller account to sell handmade products.
         </p>
 
-        <form onSubmit={handleRegister} className="buyer-register-form">
+        <form onSubmit={handleVendorRegister} className="vendor-register-form">
           <input
             type="text"
             name="name"
-            placeholder="Full Name"
+            placeholder="Seller Full Name"
             value={formData.name}
             onChange={handleChange}
             required
@@ -59,7 +67,7 @@ function Register() {
           <input
             type="email"
             name="email"
-            placeholder="Email ID"
+            placeholder="Seller Email ID"
             value={formData.email}
             onChange={handleChange}
             required
@@ -92,19 +100,20 @@ function Register() {
           <button type="submit">Register</button>
         </form>
 
-        <p className="buyer-register-login">
-          Already have an account? <Link to="/login">Login here</Link>
+        <p className="vendor-register-login">
+          Already have a seller account?{" "}
+          <Link to="/vendor-login">Login here</Link>
         </p>
       </div>
 
       <style>
         {`
-          .buyer-register-page,
-          .buyer-register-page * {
+          .vendor-register-page,
+          .vendor-register-page * {
             box-sizing: border-box;
           }
 
-          .buyer-register-page {
+          .vendor-register-page {
             width: 100%;
             min-height: 100vh;
             background:
@@ -114,9 +123,24 @@ function Register() {
             align-items: center;
             justify-content: center;
             padding: 18px;
+            position: relative;
           }
 
-          .buyer-register-card {
+          .vendor-register-back-btn {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            background: #3e2723;
+            color: #fff8ef;
+            border: 1px solid #c8a77a;
+            border-radius: 30px;
+            padding: 11px 22px;
+            font-family: Georgia, "Times New Roman", serif;
+            font-weight: 900;
+            cursor: pointer;
+          }
+
+          .vendor-register-card {
             width: min(100%, 450px);
             background: rgba(255, 250, 242, 0.97);
             border: 1px solid #c8a77a;
@@ -126,15 +150,14 @@ function Register() {
             box-shadow: 0 10px 28px rgba(62, 39, 35, 0.18);
           }
 
-          .buyer-register-card h1 {
+          .vendor-register-card h1 {
             margin: 0;
             color: #3e2723;
             font-family: Georgia, "Times New Roman", serif;
             font-size: 42px;
-            line-height: 1.1;
           }
 
-          .buyer-register-subtitle {
+          .vendor-register-subtitle {
             width: 100%;
             max-width: 320px;
             margin: 14px auto 22px;
@@ -143,7 +166,7 @@ function Register() {
             line-height: 1.35;
           }
 
-          .buyer-register-form {
+          .vendor-register-form {
             width: 100%;
             max-width: 320px;
             margin: 0 auto;
@@ -152,9 +175,9 @@ function Register() {
             gap: 14px;
           }
 
-          .buyer-register-form input,
-          .buyer-register-form select,
-          .buyer-register-form button {
+          .vendor-register-form input,
+          .vendor-register-form select,
+          .vendor-register-form button {
             width: 100%;
             height: 46px;
             border-radius: 12px;
@@ -162,8 +185,8 @@ function Register() {
             font-weight: 800;
           }
 
-          .buyer-register-form input,
-          .buyer-register-form select {
+          .vendor-register-form input,
+          .vendor-register-form select {
             border: 1px solid #c8a77a;
             background: #fff8ef;
             color: #3e2723;
@@ -171,51 +194,34 @@ function Register() {
             outline: none;
           }
 
-          .buyer-register-form input::placeholder {
-            color: #6d5a4d;
-          }
-
-          .buyer-register-form button {
+          .vendor-register-form button {
             border: none;
             background: #7a4f2a;
             color: white;
             cursor: pointer;
             font-family: Georgia, "Times New Roman", serif;
-            box-shadow: 0 5px 14px rgba(62, 39, 35, 0.18);
           }
 
-          .buyer-register-form button:hover {
-            background: #5c371d;
-          }
-
-          .buyer-register-login {
+          .vendor-register-login {
             margin: 18px 0 0;
             color: #3e2723;
             font-weight: 800;
           }
 
-          .buyer-register-login a {
+          .vendor-register-login a {
             color: #7a4f2a;
             font-weight: 900;
             text-decoration: none;
           }
 
-          .buyer-register-login a:hover {
-            text-decoration: underline;
-          }
-
           @media (max-width: 480px) {
-            .buyer-register-card {
+            .vendor-register-page {
+              align-items: flex-start;
+              padding-top: 90px;
+            }
+
+            .vendor-register-card {
               padding: 28px 20px;
-              border-radius: 18px;
-            }
-
-            .buyer-register-card h1 {
-              font-size: 36px;
-            }
-
-            .buyer-register-form {
-              max-width: 100%;
             }
           }
         `}
@@ -224,4 +230,4 @@ function Register() {
   );
 }
 
-export default Register;
+export default VendorRegister;
