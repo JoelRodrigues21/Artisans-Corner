@@ -1,4 +1,5 @@
 ﻿import { useNavigate } from "react-router-dom";
+import API from "../services/api";
 
 function BuyerDashboard() {
   const navigate = useNavigate();
@@ -18,6 +19,21 @@ function BuyerDashboard() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     navigate("/login");
+  };
+
+  const handleBecomeSeller = async () => {
+    try {
+      const res = await API.put("/auth/become-seller");
+
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+
+      alert("Seller account activated successfully. You can now sell products.");
+
+      navigate("/vendor");
+    } catch (error) {
+      console.log(error);
+      alert(error.response?.data?.message || "Failed to activate seller account");
+    }
   };
 
   return (
@@ -89,10 +105,12 @@ function BuyerDashboard() {
               <div className="buyer-full-seller-text">
                 <p>Seller Account</p>
                 <h2>Want to sell your handmade products?</h2>
-                <span>Use seller login to continue as a vendor.</span>
+                <span>
+                  Click below to activate seller access using this same account.
+                </span>
               </div>
 
-              <button onClick={() => navigate("/vendor-login")}>
+              <button onClick={handleBecomeSeller}>
                 Become a Seller / Sell
               </button>
             </div>
